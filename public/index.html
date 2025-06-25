@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LLaMA Chat</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      margin: 0; padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    #chat-container {
+      width: 400px;
+      max-height: 600px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+    }
+    #chat {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .message {
+      max-width: 75%;
+      padding: 10px 14px;
+      border-radius: 18px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      word-wrap: break-word;
+    }
+    .user {
+      align-self: flex-end;
+      background: #dcf8c6;
+      color: #000;
+    }
+    .bot {
+      align-self: flex-start;
+      background: #e8e8e8;
+      color: #000;
+    }
+    #input-area {
+      display: flex;
+      padding: 12px;
+      border-top: 1px solid #ddd;
+    }
+    #input {
+      flex: 1;
+      padding: 10px 14px;
+      font-size: 16px;
+      border-radius: 18px;
+      border: 1px solid #ccc;
+      outline: none;
+    }
+    #send-btn {
+      margin-left: 8px;
+      background: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 18px;
+      padding: 0 20px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 16px;
+      transition: background 0.3s;
+    }
+    #send-btn:hover {
+      background: #45a049;
+    }
+    #send-btn:disabled {
+      background: #9e9e9e;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <div id="chat-container">
+    <div id="chat"></div>
+    <div id="input-area">
+      <input id="input" type="text" placeholder="Type a message..." autocomplete="off" />
+      <button id="send-btn">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const chatEl = document.getElementById('chat');
+    const inputEl = document.getElementById('input');
+    const sendBtn = document.getElementById('send-btn');
+    let messages = JSON.parse(localStorage.getItem('llama-messages') || '[]');
+
+    function saveMessages() {
+      localStorage.setItem('llama-messages', JSON.stringify(messages));
+    }
+
+    function renderMessages() {
+      chatEl.innerHTML = '';
+      messages.forEach(({ role, content }) => {
+        const msgDiv = document.createElement('div');
+        msgDiv.classList.add('message', role === 'user' ? 'user' : 'bot');
+        msgDiv.textContent = content;
+        chatEl.appendChild(msgDiv);
+      });
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
+
+    async function sendMessage() {
+      const text = inputEl.value.trim();
+      if (!text) return;
+      messages.push({ role: 'user', content: text });
+      renderMessages(); saveMessages();
+      inputEl.value = '';
+      sendBtn.disabled = inputEl.disabled = true;
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages })
+        });
+        const data = await res.json();
+        if (data.error) { alert(data.error); }
+        else {
+          messages.push({ role: 'assistant', content: data.answer });
+          renderMessages(); saveMessages();
+        }
+      } catch {
+        alert('Network error');
+      } finally {
+        sendBtn.disabled = inputEl.disabled = false;
+        inputEl.focus();
+      }
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    inputEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter') sendMessage();
+    });
+
+    renderMessages();
+    inputEl.focus();
+  </script>
+</body>
+</html>
